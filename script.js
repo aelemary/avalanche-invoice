@@ -1,385 +1,212 @@
 const { jsPDF } = window.jspdf;
 
-let currentStep = 1;
-const totalSteps = 4;
+const PAGE = { width: 2500, height: 3538 };
+const editableTemplateUrl = 'Avalanche Invoice.editable.svg';
+let editableTemplateDocument;
+let renderVersion = 0;
 
-let selectedCurrency = 'GBP';
-let selectedTaxRate = 0.20;
-let invoices = [];
+const form = document.getElementById('invoiceForm');
+const previewCanvas = document.getElementById('invoicePreview');
+const previewContext = previewCanvas.getContext('2d');
+const printableToggle = document.getElementById('printableToggle');
+const editorTotal = document.getElementById('editorTotal');
+const updatePreviewButton = document.getElementById('updatePreview');
+const fields = {
+    dueDate: document.getElementById('dueDate'),
+    issuedDate: document.getElementById('issuedDate'),
+    billedTo: document.getElementById('billedTo'),
+    paymentHeading: document.getElementById('paymentHeading'),
+    subtotal: document.getElementById('subtotal'),
+    tax: document.getElementById('tax')
+};
 
-function updateStepIndicator() {
-    const stepIndicator = document.getElementById('stepIndicator');
-    stepIndicator.textContent = `Step ${currentStep} of ${totalSteps}`;
+function todayForInput() {
+    const now = new Date();
+    const offset = now.getTimezoneOffset();
+    return new Date(now.getTime() - offset * 60 * 1000).toISOString().slice(0, 10);
 }
 
-function showStep(step) {
-    document.querySelectorAll('.step').forEach(s => s.style.display = 'none');
-    document.getElementById(`step${step}`).style.display = 'block';
-    currentStep = step;
-    updateStepIndicator();
+function numberValue(input) {
+    const value = Number.parseFloat(input.value);
+    return Number.isFinite(value) && value >= 0 ? value : 0;
 }
 
-document.getElementById('step1Next').addEventListener('click', function(e) {
-    e.preventDefault();
-    const form = document.forms['contact'];
-    const formData = new FormData(form);
-
-    const currentInputs = document.getElementById('step1').querySelectorAll('input[required]');
-    let valid = true;
-    currentInputs.forEach(input => {
-        if (!input.value) {
-            valid = false;
-            input.reportValidity();
-        }
-    });
-
-    if (!valid) return;
-
-    fetch('/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams(formData).toString()
-    })
-    .then(() => {
-        showStep(currentStep + 1);
-    })
-    .catch(error => {
-        showStep(currentStep + 1);
-    });
-});
-
-document.querySelectorAll('.next-btn:not(#step1Next)').forEach(btn => {
-    btn.addEventListener('click', function() {
-        if (currentStep < totalSteps) {
-            const currentInputs = document.getElementById(`step${currentStep}`).querySelectorAll('input[required]');
-            let valid = true;
-            currentInputs.forEach(input => {
-                if (!input.value) {
-                    valid = false;
-                    input.reportValidity();
-                }
-            });
-            if (valid) showStep(currentStep + 1);
-        }
-    });
-});
-
-document.querySelectorAll('.prev-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-        if (currentStep > 1) showStep(currentStep - 1);
-    });
-});
-
-document.getElementById('addItem').addEventListener('click', function() {
-    addBillableItem();
-});
-
-document.querySelectorAll('.currency-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-        document.querySelectorAll('.currency-btn').forEach(b => b.classList.remove('active'));
-        this.classList.add('active');
-        selectedCurrency = this.getAttribute('data-value');
-        selectedTaxRate = { 'GBP': 0.20, 'USD': 0.08, 'EUR': 0.19 }[selectedCurrency];
-        document.querySelector('.tax-btn[data-tax="20"]').classList.add('active');
-        document.querySelector('.tax-btn[data-tax="0"]').classList.remove('active');
-    });
-});
-
-document.querySelectorAll('.tax-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-        document.querySelectorAll('.tax-btn').forEach(b => b.classList.remove('active'));
-        this.classList.add('active');
-        selectedTaxRate = parseFloat(this.getAttribute('data-tax')) / 100;
-    });
-});
-
-const gdprCheckbox = document.getElementById('gdprConsent');
-const generateBtn = document.getElementById('generateBtn');
-gdprCheckbox.addEventListener('change', function() {
-    generateBtn.disabled = !this.checked;
-});
-
-document.getElementById('invoiceFormStep4').addEventListener('submit', function(e) {
-    e.preventDefault();
-
-    const allRequiredInputs = document.querySelectorAll('#step1 input[required], #step2 input[required]');
-    let formValid = true;
-    allRequiredInputs.forEach(input => {
-        if (!input.value) {
-            formValid = false;
-            input.reportValidity();
-        }
-    });
-
-    const rateInputs = document.querySelectorAll('.item-rate');
-    for (let rateInput of rateInputs) {
-        const rateValue = rateInput.value;
-        if (/[£$€]/.test(rateValue)) {
-            formValid = false;
-            rateInput.setCustomValidity('Currency symbols (£, $, €) are not allowed in the rate field.');
-            rateInput.reportValidity();
-        } else {
-            rateInput.setCustomValidity('');
-        }
-    }
-
-    const sortCodeInput = document.getElementById('bankSortCode');
-    const sortCodeValue = sortCodeInput.value;
-    if (sortCodeValue && !/^\d{2}-\d{2}-\d{2}$/.test(sortCodeValue)) {
-        formValid = false;
-        sortCodeInput.setCustomValidity('Sort Code must be in the format xx-xx-xx (e.g., 12-34-56).');
-        sortCodeInput.reportValidity();
-    } else {
-        sortCodeInput.setCustomValidity('');
-    }
-
-    if (!formValid) return;
-
-    const invoicerName = document.getElementById('invoicerName').value;
-    const invoicerPhone = document.getElementById('invoicerPhone').value;
-    const invoicerEmail = document.getElementById('invoicerEmail').value;
-    const clientName = document.getElementById('clientName').value;
-    const dueDate = document.getElementById('dueDate').value;
-    const currency = selectedCurrency;
-    const bankAccountNumber = document.getElementById('bankAccountNumber').value;
-    const bankSortCode = sortCodeValue;
-    const bankIBAN = document.getElementById('bankIBAN').value;
-    const bankSWIFT = document.getElementById('bankSWIFT').value;
-    const billableItems = document.querySelectorAll('.billable-item');
-
-    let subtotal = 0;
-    const items = [];
-    billableItems.forEach(item => {
-        const desc = item.querySelector('.item-desc').value;
-        const qty = parseInt(item.querySelector('.item-qty').value) || 1;
-        let rate = parseFloat(item.querySelector('.item-rate').value);
-        if (isNaN(rate)) rate = 0;
-        const hours = parseFloat(item.querySelector('.item-hours').value) || 0;
-        let itemTotal = rate * qty;
-        if (hours > 0) itemTotal *= hours;
-        items.push({ desc, qty, rate, hours, itemTotal });
-        subtotal += itemTotal;
-    });
-
-    const tax = subtotal * selectedTaxRate;
-    const total = subtotal + tax;
-
-    const invoiceData = {
-        invoicerName,
-        invoicerPhone,
-        invoicerEmail,
-        clientName,
-        dueDate,
-        items,
+function invoiceData() {
+    const subtotal = numberValue(fields.subtotal);
+    const taxPercent = numberValue(fields.tax);
+    const tax = subtotal * (taxPercent / 100);
+    return {
+        dueDate: fields.dueDate.value,
+        issuedDate: fields.issuedDate.value,
+        billedTo: fields.billedTo.value.trim(),
+        paymentHeading: fields.paymentHeading.value.trim(),
         subtotal,
         tax,
-        total,
-        currency,
-        taxRate: selectedTaxRate,
-        bankAccountNumber,
-        bankSortCode,
-        bankIBAN,
-        bankSWIFT
+        total: subtotal + tax,
+        taxPercent
     };
-    invoices.push(invoiceData);
+}
 
-    const invoiceList = document.getElementById('invoiceList');
-    const li = document.createElement('li');
-    li.innerHTML = `${clientName} - ${currencySymbol(currency)}${total.toFixed(2)} (Due: ${dueDate})
-        <button class="download-btn">Download PDF</button>`;
-    li.dataset.invoiceIndex = invoices.length - 1;
-    invoiceList.appendChild(li);
+function formatMoney(value) {
+    return new Intl.NumberFormat('en-GB', {
+        style: 'currency',
+        currency: 'GBP',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(value);
+}
 
-    const downloadBtn = li.querySelector('.download-btn');
-    downloadBtn.addEventListener('click', function() {
-        const index = parseInt(li.dataset.invoiceIndex);
-        const data = invoices[index];
-        downloadInvoice(
-            data.invoicerName,
-            data.invoicerPhone,
-            data.invoicerEmail,
-            data.clientName,
-            data.dueDate,
-            data.items,
-            data.subtotal,
-            data.tax,
-            data.total,
-            data.currency,
-            data.taxRate,
-            data.bankAccountNumber,
-            data.bankSortCode,
-            data.bankIBAN,
-            data.bankSWIFT
-        );
+function formatPercent(value) {
+    return new Intl.NumberFormat('en-GB', { maximumFractionDigits: 2 }).format(value);
+}
+
+function formatDate(value) {
+    if (!value) return '';
+    const [year, month, day] = value.split('-');
+    return year && month && day ? `${day}/${month}/${year}` : '';
+}
+
+function setSvgText(svgDocument, id, value) {
+    const element = svgDocument.getElementById(id);
+    if (element) element.textContent = value;
+}
+
+function wrapBilledTo(value, maxWidth = 560, maxLines = 4) {
+    const measureCanvas = document.createElement('canvas');
+    const measureContext = measureCanvas.getContext('2d');
+    measureContext.font = '400 40px Inter, Arial, sans-serif';
+    const lines = [];
+
+    for (const paragraph of value.split(/\r?\n/)) {
+        const words = paragraph.trim().split(/\s+/).filter(Boolean);
+        if (!words.length) continue;
+        let line = '';
+        for (const word of words) {
+            const candidate = line ? `${line} ${word}` : word;
+            if (measureContext.measureText(candidate).width <= maxWidth) {
+                line = candidate;
+                continue;
+            }
+            if (line) lines.push(line);
+            if (measureContext.measureText(word).width <= maxWidth) {
+                line = word;
+                continue;
+            }
+            let remaining = word;
+            while (remaining && measureContext.measureText(remaining).width > maxWidth) {
+                let splitAt = remaining.length;
+                while (splitAt > 1 && measureContext.measureText(remaining.slice(0, splitAt)).width > maxWidth) {
+                    splitAt -= 1;
+                }
+                lines.push(remaining.slice(0, splitAt));
+                remaining = remaining.slice(splitAt);
+            }
+            line = remaining;
+        }
+        if (line) lines.push(line);
+    }
+
+    if (lines.length <= maxLines) return lines;
+    const visibleLines = lines.slice(0, maxLines);
+    let finalLine = visibleLines[maxLines - 1];
+    while (finalLine && measureContext.measureText(`${finalLine}…`).width > maxWidth) {
+        finalLine = finalLine.slice(0, -1).trimEnd();
+    }
+    visibleLines[maxLines - 1] = `${finalLine}…`;
+    return visibleLines;
+}
+
+function buildInvoiceSvg(data) {
+    const svgDocument = editableTemplateDocument.cloneNode(true);
+    setSvgText(svgDocument, 'invoice-due-date', `Due ${formatDate(data.dueDate)}`);
+    setSvgText(svgDocument, 'invoice-issued-date', `Issued ${formatDate(data.issuedDate)}`);
+    const billedToLines = wrapBilledTo(data.billedTo);
+    for (let index = 0; index < 4; index += 1) {
+        setSvgText(svgDocument, `invoice-billed-to-line-${index + 1}`, billedToLines[index] || '');
+    }
+    setSvgText(svgDocument, 'invoice-payment-heading', data.paymentHeading);
+    setSvgText(svgDocument, 'invoice-tax-label', `Tax (${formatPercent(data.taxPercent)}%)`);
+    setSvgText(svgDocument, 'invoice-subtotal', formatMoney(data.subtotal));
+    setSvgText(svgDocument, 'invoice-tax', formatMoney(data.tax));
+    setSvgText(svgDocument, 'invoice-total', formatMoney(data.total));
+    return new XMLSerializer().serializeToString(svgDocument);
+}
+
+function loadSvgImage(svgMarkup) {
+    return new Promise((resolve, reject) => {
+        const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
+        const objectUrl = URL.createObjectURL(blob);
+        const image = new Image();
+        image.onload = () => {
+            URL.revokeObjectURL(objectUrl);
+            resolve(image);
+        };
+        image.onerror = () => {
+            URL.revokeObjectURL(objectUrl);
+            reject(new Error('The editable SVG could not be rendered.'));
+        };
+        image.src = objectUrl;
     });
+}
 
-    downloadInvoice(
-        invoicerName,
-        invoicerPhone,
-        invoicerEmail,
-        clientName,
-        dueDate,
-        items,
-        subtotal,
-        tax,
-        total,
-        currency,
-        selectedTaxRate,
-        bankAccountNumber,
-        bankSortCode,
-        bankIBAN,
-        bankSWIFT
-    );
+async function renderInvoice() {
+    if (!editableTemplateDocument) return;
+    const version = ++renderVersion;
+    const data = invoiceData();
+    editorTotal.textContent = formatMoney(data.total);
 
-    document.getElementById('invoiceForm').reset();
-    document.getElementById('invoiceFormStep2').reset();
-    document.getElementById('invoiceFormStep3').reset();
-    document.getElementById('invoiceFormStep4').reset();
-    document.getElementById('billableItems').innerHTML = '';
-    addBillableItem();
-    document.querySelector('.currency-btn[data-value="GBP"]').classList.add('active');
-    document.querySelectorAll('.currency-btn:not([data-value="GBP"])').forEach(b => b.classList.remove('active'));
-    document.querySelector('.tax-btn[data-tax="20"]').classList.add('active');
-    document.querySelector('.tax-btn[data-tax="0"]').classList.remove('active');
-    selectedCurrency = 'GBP';
-    selectedTaxRate = 0.20;
-    setDefaultDate();
-    showStep(1);
-    gdprCheckbox.checked = false;
-    generateBtn.disabled = true;
+    const image = await loadSvgImage(buildInvoiceSvg(data));
+    if (version !== renderVersion) return;
+
+    previewContext.clearRect(0, 0, PAGE.width, PAGE.height);
+    previewContext.save();
+    if (printableToggle.checked) previewContext.filter = 'invert(1)';
+    previewContext.drawImage(image, 0, 0, PAGE.width, PAGE.height);
+    previewContext.restore();
+}
+
+function updateTotalReadout() {
+    editorTotal.textContent = formatMoney(invoiceData().total);
+}
+
+function slug(value) {
+    return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'invoice';
+}
+
+function downloadPdf() {
+    const data = invoiceData();
+    const documentPdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+    documentPdf.addImage(previewCanvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
+    documentPdf.save(`${slug(data.billedTo.split(/\r?\n/)[0])}-invoice-${data.dueDate}.pdf`);
+}
+
+async function loadEditableTemplate() {
+    const response = await fetch(editableTemplateUrl);
+    if (!response.ok) throw new Error('The editable invoice SVG could not be loaded.');
+    const source = await response.text();
+    editableTemplateDocument = new DOMParser().parseFromString(source, 'image/svg+xml');
+    if (editableTemplateDocument.querySelector('parsererror')) {
+        throw new Error('The editable invoice SVG is invalid.');
+    }
+    await document.fonts.ready;
+    await renderInvoice();
+}
+
+fields.issuedDate.value = todayForInput();
+loadEditableTemplate().catch(error => {
+    console.error(error);
+    previewCanvas.setAttribute('aria-label', 'Invoice preview could not be loaded');
 });
 
-function currencySymbol(currency) {
-    return { 'GBP': '£', 'USD': '$', 'EUR': '€' }[currency];
-}
-
-function downloadInvoice(invoicerName, invoicerPhone, invoicerEmail, clientName, dueDate, items, subtotal, tax, total, currency, taxRate, bankAccountNumber, bankSortCode, bankIBAN, bankSWIFT) {
-    const doc = new jsPDF();
-    const symbol = currencySymbol(currency);
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 20;
-
-    doc.setFontSize(24);
-    doc.setTextColor(0, 0, 0);
-    doc.text('InvoiceAI', pageWidth / 2, margin, { align: 'center' });
-
-    doc.setFontSize(12);
-    doc.setTextColor(0);
-    let yPos = margin + 20;
-    doc.text('Invoicer Details', margin, yPos);
-    doc.line(margin, yPos + 2, pageWidth - margin, yPos + 2);
-    yPos += 10;
-    doc.text(`From: ${invoicerName}`, margin, yPos);
-    if (invoicerPhone) {
-        yPos += 8;
-        doc.text(`Phone: ${invoicerPhone}`, margin, yPos);
+updatePreviewButton.addEventListener('click', () => { void renderInvoice(); });
+form.addEventListener('input', updateTotalReadout);
+form.addEventListener('change', updateTotalReadout);
+form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
     }
-    if (invoicerEmail) {
-        yPos += 8;
-        doc.text(`Email: ${invoicerEmail}`, margin, yPos);
-    }
-
-    yPos += 15;
-    doc.text('Client Details', margin, yPos);
-    doc.line(margin, yPos + 2, pageWidth - margin, yPos + 2);
-    yPos += 10;
-    doc.text(`Client: ${clientName}`, margin, yPos);
-    yPos += 8;
-    doc.text(`Due Date: ${dueDate}`, margin, yPos);
-    yPos += 8;
-    doc.text(`Currency: ${currency}`, margin, yPos);
-
-    yPos += 15;
-    doc.setFontSize(14);
-    doc.text('Billable Items', margin, yPos);
-    doc.line(margin, yPos + 2, pageWidth - margin, yPos + 2);
-
-    yPos += 10;
-    doc.setFontSize(10);
-    doc.text('Description', margin, yPos);
-    doc.text('Qty', margin + 60, yPos, { align: 'center' });
-    doc.text('Rate', margin + 90, yPos, { align: 'right' });
-    doc.text('Hours', margin + 120, yPos, { align: 'right' });
-    doc.text('Total', pageWidth - margin, yPos, { align: 'right' });
-    yPos += 5;
-    doc.line(margin, yPos, pageWidth - margin, yPos);
-
-    items.forEach((item, index) => {
-        yPos += 10;
-        doc.text(item.desc, margin, yPos);
-        doc.text(item.qty.toString(), margin + 60, yPos, { align: 'center' });
-        doc.text(`${item.rate.toFixed(2)}`, margin + 90, yPos, { align: 'right' });
-        doc.text(item.hours > 0 ? item.hours.toFixed(1) : '-', margin + 120, yPos, { align: 'right' });
-        doc.text(`${symbol}${item.itemTotal.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
-    });
-
-    yPos += 20;
-    doc.setFontSize(12);
-    doc.text('Summary', margin, yPos);
-    doc.line(margin, yPos + 2, pageWidth - margin, yPos + 2);
-    yPos += 10;
-    doc.text(`Subtotal: ${symbol}${subtotal.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
-    yPos += 8;
-    doc.text(`Tax (${(taxRate * 100)}%): ${symbol}${tax.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
-    yPos += 10;
-    doc.setFontSize(14);
-    doc.setTextColor(0, 0, 0);
-    doc.text(`Total: ${symbol}${total.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
-
-    yPos += 20;
-    doc.setFontSize(12);
-    doc.setTextColor(0);
-    if (bankAccountNumber || bankSortCode || bankIBAN || bankSWIFT) {
-        doc.text('Payment Instructions', margin, yPos);
-        doc.line(margin, yPos + 2, pageWidth - margin, yPos + 2);
-        yPos += 10;
-        doc.text('Please pay via bank transfer.', margin, yPos);
-        yPos += 8;
-        doc.text(`Account Name: ${invoicerName}`, margin, yPos);
-        yPos += 8;
-        if (bankAccountNumber) {
-            doc.text(`Account Number: ${bankAccountNumber}`, margin, yPos);
-            yPos += 8;
-        }
-        if (bankSortCode) {
-            doc.text(`Sort Code: ${bankSortCode}`, margin, yPos);
-            yPos += 8;
-        }
-        if (bankIBAN) {
-            doc.text(`IBAN: ${bankIBAN}`, margin, yPos);
-            yPos += 8;
-        }
-        if (bankSWIFT) {
-            doc.text(`SWIFT/BIC: ${bankSWIFT}`, margin, yPos);
-            yPos += 8;
-        }
-    }
-
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 255);
-    doc.textWithLink('Invoices Made Easier by InvoiceAI', pageWidth / 2, pageHeight - margin, { align: 'center', url: 'https://invoiceai.com' });
-
-    doc.save(`invoice_${clientName}_${dueDate}.pdf`);
-}
-
-function addBillableItem(desc = '', qty = 1, rate = '', hours = '') {
-    const billableItems = document.getElementById('billableItems');
-    const newItem = document.createElement('div');
-    newItem.classList.add('billable-item');
-    newItem.innerHTML = `
-        <input type="text" class="item-desc" placeholder="Description" value="${desc}" required>
-        <input type="number" class="item-qty" placeholder="Qty" step="1" value="${qty}" required>
-        <input type="text" class="item-rate" placeholder="Rate (numbers only)" pattern="[0-9]+(\.[0-9]{1,2})?" title="Enter a number (e.g., 50 or 50.00), no currency symbols" value="${rate}" required>
-        <input type="number" class="item-hours" placeholder="Hours (optional)" step="0.1" value="${hours}">
-    `;
-    billableItems.appendChild(newItem);
-}
-
-function setDefaultDate() {
-    const today = '2025-04-06';
-    document.getElementById('dueDate').value = today;
-}
-
-setDefaultDate();
-showStep(1);
+    await renderInvoice();
+    downloadPdf();
+});
