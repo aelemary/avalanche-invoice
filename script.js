@@ -9,14 +9,14 @@ const form = document.getElementById('invoiceForm');
 const previewCanvas = document.getElementById('invoicePreview');
 const previewContext = previewCanvas.getContext('2d');
 const printableToggle = document.getElementById('printableToggle');
-const editorTotal = document.getElementById('editorTotal');
+const editorSubtotal = document.getElementById('editorSubtotal');
 const updatePreviewButton = document.getElementById('updatePreview');
 const fields = {
     dueDate: document.getElementById('dueDate'),
     issuedDate: document.getElementById('issuedDate'),
     billedTo: document.getElementById('billedTo'),
     paymentHeading: document.getElementById('paymentHeading'),
-    subtotal: document.getElementById('subtotal'),
+    total: document.getElementById('total'),
     tax: document.getElementById('tax')
 };
 
@@ -32,9 +32,10 @@ function numberValue(input) {
 }
 
 function invoiceData() {
-    const subtotal = numberValue(fields.subtotal);
+    const total = numberValue(fields.total);
     const taxPercent = numberValue(fields.tax);
-    const tax = subtotal * (taxPercent / 100);
+    const subtotal = total / (1 + taxPercent / 100);
+    const tax = total - subtotal;
     return {
         dueDate: fields.dueDate.value,
         issuedDate: fields.issuedDate.value,
@@ -42,7 +43,7 @@ function invoiceData() {
         paymentHeading: fields.paymentHeading.value.trim(),
         subtotal,
         tax,
-        total: subtotal + tax,
+        total,
         taxPercent
     };
 }
@@ -64,6 +65,34 @@ function formatDate(value) {
     if (!value) return '';
     const [year, month, day] = value.split('-');
     return year && month && day ? `${day}/${month}/${year}` : '';
+}
+
+function invoiceNumberDate(value) {
+    if (!value) return '';
+    const [year, month, day] = value.split('-');
+    return year && month && day ? `${day}${month}${year.slice(-2)}` : '';
+}
+
+function invoiceChecksum(data) {
+    const values = [
+        data.dueDate,
+        data.issuedDate,
+        data.billedTo,
+        data.paymentHeading,
+        data.total.toFixed(2),
+        data.taxPercent.toFixed(2)
+    ].join('|');
+    let hash = 0x811C9DC5;
+    for (const character of values) {
+        hash ^= character.codePointAt(0);
+        hash = Math.imul(hash, 0x01000193);
+    }
+    return (hash >>> 0).toString(16).toUpperCase().padStart(8, '0');
+}
+
+function invoiceNumber(data) {
+    const date = invoiceNumberDate(data.issuedDate);
+    return date ? `I-${date}-${invoiceChecksum(data)}` : '';
 }
 
 function setSvgText(svgDocument, id, value) {
@@ -120,6 +149,7 @@ function buildInvoiceSvg(data) {
     const svgDocument = editableTemplateDocument.cloneNode(true);
     setSvgText(svgDocument, 'invoice-due-date', `Due ${formatDate(data.dueDate)}`);
     setSvgText(svgDocument, 'invoice-issued-date', `Issued ${formatDate(data.issuedDate)}`);
+    setSvgText(svgDocument, 'invoice-number', data.invoiceNumber);
     const billedToLines = wrapBilledTo(data.billedTo);
     for (let index = 0; index < 4; index += 1) {
         setSvgText(svgDocument, `invoice-billed-to-line-${index + 1}`, billedToLines[index] || '');
@@ -153,7 +183,8 @@ async function renderInvoice() {
     if (!editableTemplateDocument) return;
     const version = ++renderVersion;
     const data = invoiceData();
-    editorTotal.textContent = formatMoney(data.total);
+    data.invoiceNumber = invoiceNumber(data);
+    editorSubtotal.textContent = formatMoney(data.subtotal);
 
     const image = await loadSvgImage(buildInvoiceSvg(data));
     if (version !== renderVersion) return;
@@ -166,7 +197,7 @@ async function renderInvoice() {
 }
 
 function updateTotalReadout() {
-    editorTotal.textContent = formatMoney(invoiceData().total);
+    editorSubtotal.textContent = formatMoney(invoiceData().subtotal);
 }
 
 function slug(value) {
@@ -181,7 +212,7 @@ function downloadPdf() {
 }
 
 async function loadEditableTemplate() {
-    const response = await fetch(editableTemplateUrl);
+    const response = await fetch(editableTemplateUrl, { cache: 'no-store' });
     if (!response.ok) throw new Error('The editable invoice SVG could not be loaded.');
     const source = await response.text();
     editableTemplateDocument = new DOMParser().parseFromString(source, 'image/svg+xml');
