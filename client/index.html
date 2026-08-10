@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Avalanche Invoice Generator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <main class="app-shell">
+        <header class="app-header">
+            <p class="eyebrow">Avalanche Tech Ltd.</p>
+            <h1>Invoice generator</h1>
+            <p class="intro">Edit the approved fields, preview the result, then download an A4 PDF.</p>
+        </header>
+
+        <div class="workspace">
+            <section class="editor-panel" aria-labelledby="editor-title">
+                <div class="panel-heading">
+                    <p class="eyebrow">Invoice details</p>
+                    <h2 id="editor-title">Create invoice</h2>
+                </div>
+
+                <form id="invoiceForm" novalidate>
+                    <div class="field-row">
+                        <label>
+                            Due date
+                            <input type="date" id="dueDate" required>
+                        </label>
+                        <label>
+                            Issued date
+                            <input type="date" id="issuedDate" required>
+                        </label>
+                    </div>
+
+                    <label>
+                        Billed to <span>(up to four invoice lines)</span>
+                        <textarea id="billedTo" rows="4" autocomplete="street-address" placeholder="Client name&#10;Company or address&#10;Address line 2&#10;City / postcode" required></textarea>
+                    </label>
+
+                    <label>
+                        Payment heading
+                        <input type="text" id="paymentHeading" maxlength="42" placeholder="e.g. BuraCrew Payment (3/3)" required>
+                    </label>
+
+                    <div class="field-row">
+                        <label>
+                            Total including tax (GBP)
+                            <input type="number" id="total" min="0" step="0.01" inputmode="decimal" value="0.00" required>
+                        </label>
+                        <label>
+                            Tax rate (%)
+                            <input type="number" id="tax" min="0" step="0.01" inputmode="decimal" value="0" required>
+                        </label>
+                    </div>
+
+                    <div class="total-readout" aria-live="polite">
+                        <span>Subtotal before tax</span>
+                        <strong id="editorSubtotal">£0.00</strong>
+                    </div>
+
+                    <button type="button" class="preview-button" id="updatePreview">Update preview</button>
+                    <button type="submit" class="download-button">Download PDF</button>
+                </form>
+            </section>
+
+            <section class="preview-panel" aria-labelledby="preview-title">
+                <div class="preview-toolbar">
+                    <div>
+                        <p class="eyebrow">Live preview</p>
+                        <h2 id="preview-title">A4 invoice</h2>
+                    </div>
+                    <label class="theme-toggle" for="printableToggle">
+                        <input type="checkbox" id="printableToggle">
+                        <span class="toggle-track" aria-hidden="true"></span>
+                        <span>Printable</span>
+                    </label>
+                </div>
+                <div class="canvas-frame">
+                    <canvas id="invoicePreview" width="2500" height="3538" aria-label="Invoice preview"></canvas>
+                </div>
+                <p class="preview-note">Printable mode uses the same layout with inverted colours.</p>
+            </section>
+        </div>
+    </main>
+    <script src="script.js"></script>
+</body>
+</html>

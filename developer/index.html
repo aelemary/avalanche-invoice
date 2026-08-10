@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Developer Invoice Generator | Avalanche</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header"><a href="../">← All generators</a><strong>Avalanche Tech Ltd.</strong></header>
+  <main class="app-shell">
+    <div class="page-heading"><p class="eyebrow">Internal tool</p><h1>Developer invoice generator</h1><p>Create an invoice for developer or contractor work. Your details remain in this browser only.</p></div>
+    <div class="workspace">
+      <section class="editor-panel" aria-labelledby="form-title">
+        <h2 id="form-title">Invoice details</h2>
+        <form id="developerInvoiceForm" novalidate>
+          <fieldset><legend>Header &amp; tracking</legend>
+            <div class="field-row"><label>Invoice number<input id="invoiceNumber" readonly aria-readonly="true"></label><label>Invoice date<input id="invoiceDate" type="date" required></label></div>
+            <label>Payment terms<select id="paymentTerms" required><option value="Due on Receipt">Due on Receipt</option><option value="Net 14">Net 14</option><option value="Net 30">Net 30</option><option value="custom">Custom</option></select></label>
+            <label id="customTermsWrap" hidden>Custom payment terms<input id="customTerms" maxlength="100" placeholder="e.g. Payable within 7 days"></label>
+          </fieldset>
+          <fieldset><legend>From — contractor</legend>
+            <div class="field-row"><label>Full legal name<input id="legalName" autocomplete="name" required></label><label>Trading name <span class="optional">(optional)</span><input id="tradingName"></label></div>
+            <label>Physical address<textarea id="contractorAddress" rows="3" autocomplete="street-address" required></textarea></label>
+            <div class="field-row"><label>Email<input id="contractorEmail" type="email" autocomplete="email" required></label><label>Phone number<input id="contractorPhone" type="tel" autocomplete="tel" required></label></div>
+            <label>Country of tax residence<select id="taxResidence" required><option value="">Select country</option></select></label>
+          </fieldset>
+          <fieldset><legend>To — client</legend>
+            <div class="recipient-card"><strong>Avalanche Tech Ltd.</strong><span>167–169 Great Portland Street<br>5th Floor, London, United Kingdom<br>W1W 5PF</span><a href="mailto:Hello@avalanche-tech.co.uk">Hello@avalanche-tech.co.uk</a></div>
+          </fieldset>
+          <fieldset><legend>Services</legend>
+            <label>Project name / reference<input id="projectReference" placeholder="e.g. BuraCrew Milestone Delivery" required></label>
+            <div id="lineItems" class="line-items" aria-live="polite"></div>
+            <button class="secondary-button" type="button" id="addLineItem">Add service line</button>
+          </fieldset>
+          <fieldset><legend>Tax &amp; payment</legend>
+            <label>Currency<select id="currency" required><option value="GBP">GBP (£)</option><option value="USD">USD ($)</option><option value="EUR">EUR (€)</option><option value="AED">AED (د.إ)</option><option value="CAD">CAD ($)</option><option value="AUD">AUD ($)</option><option value="SGD">SGD ($)</option></select></label>
+            <label class="check-label"><input id="nonUkResident" type="checkbox">I am a Non-UK Tax Resident working outside the UK</label>
+            <label class="check-label"><input id="vatRegistered" type="checkbox">VAT / Sales Tax Registered</label>
+            <label id="vatIdWrap" hidden>VAT / Sales Tax ID<input id="vatId" maxlength="60"></label>
+            <div class="payment-method"><label>Payment method<select id="paymentMethod" required><option value="uk">UK bank account</option><option value="international">International bank account</option><option value="wise">Wise</option><option value="payoneer">Payoneer</option></select></label></div>
+            <div id="paymentFields"></div>
+            <p class="validation-note" id="accountHolderNote" aria-live="polite"></p>
+          </fieldset>
+          <div class="total-readout"><span>Subtotal</span><strong id="subtotalValue">£0.00</strong><span>VAT / sales tax</span><strong id="vatValue">£0.00</strong><span>Total amount due</span><strong id="totalValue">£0.00</strong></div>
+          <button class="preview-button" type="button" id="updatePreview">Update preview</button>
+          <button class="download-button" type="submit">Download A4 PDF</button>
+        </form>
+      </section>
+      <section class="preview-panel" aria-labelledby="preview-title"><div class="preview-heading"><p class="eyebrow">Preview</p><h2 id="preview-title">Developer invoice</h2></div><div class="canvas-frame"><canvas id="invoicePreview" width="1240" height="1754" aria-label="Developer invoice preview"></canvas></div></section>
+    </div>
+  </main>
+  <template id="lineItemTemplate"><div class="line-item"><label>Description of services<input class="line-description" required placeholder="e.g. Backend API development"></label><label>Amount <input class="line-amount" type="number" min="0.01" step="0.01" inputmode="decimal" required></label><label class="vat-rate-wrap" hidden>VAT rate %<input class="line-vat-rate" type="number" min="0" max="100" step="0.01" inputmode="decimal"></label><button type="button" class="remove-line" aria-label="Remove service line">Remove</button></div></template>
+  <script src="script.js"></script>
+</body>
+</html>
