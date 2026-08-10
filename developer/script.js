@@ -114,10 +114,11 @@ function updateTotalsAndNumber(invoiceNumberOverride) {
 }
 
 function setPaymentMarkup(method) {
-  const common = '<label class="full">Account holder name<input name="accountHolder" required></label>';
+  const common = '<div class="account-holder-row full"><label class="account-prefix">Title <span class="optional">(optional)</span><input name="accountHolderPrefix" maxlength="16" placeholder="e.g. Ms"></label><label>Account holder name<input name="accountHolder" required></label></div>';
+  const bankName = '<label class="full">Bank name<input name="bankName" required></label>';
   const options = {
-    uk: `<div class="payment-fields"><label class="full">Bank name<input name="bankName" required></label>${common}<label>Sort code<input name="sortCode" required></label><label>Account number<input name="accountNumber" required></label></div>`,
-    international: `<div class="payment-fields"><label class="full">Bank name<input name="bankName" required></label>${common}<label>IBAN<input name="iban" required></label><label>SWIFT / BIC code<input name="swiftBic" required></label></div>`,
+    uk: `<div class="payment-fields">${bankName}${common}<label>Sort code<input name="sortCode" required></label><label>Account number<input name="accountNumber" required></label></div>`,
+    international: `<div class="payment-fields">${bankName}${common}<label>IBAN<input name="iban" required></label><label>SWIFT / BIC code<input name="swiftBic" required></label></div>`,
     wise: `<div class="payment-fields">${common}<label class="full">Wise email ID<input name="wiseEmail" type="email" required></label></div>`,
     payoneer: `<div class="payment-fields">${common}<label class="full">Payoneer email ID<input name="payoneerEmail" type="email" required></label></div>`
   };

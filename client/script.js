@@ -230,6 +230,7 @@ loadEditableTemplate().catch(error => {
 });
 
 updatePreviewButton.addEventListener('click', () => { void renderInvoice(); });
+printableToggle.addEventListener('change', () => { void renderInvoice(); });
 form.addEventListener('input', updateTotalReadout);
 form.addEventListener('change', updateTotalReadout);
 form.addEventListener('submit', async event => {
