@@ -22,7 +22,7 @@ Use a local server rather than opening the files directly: the client generator 
 
 ## Client generator
 
-1. Enter the due date, issued date, client details, payment heading, total including tax, and tax rate. The subtotal and tax amount are calculated automatically.
+1. Enter the due date, issued date, client details, payment heading, total including tax, and tax rate. The subtotal and tax amount are calculated automatically. Turn on **Mark invoice as paid** to replace the due-date label on the invoice with **Paid**.
 2. Select **Update preview** when you are ready to refresh the invoice preview.
 3. Turn on **Printable** if you need the inverted-colour version.
 4. Select **Download PDF** to save the A4 invoice.
@@ -45,7 +45,7 @@ For example, a £1,600 total at 20% tax produces a £1,333.33 subtotal and £266
 Each invoice receives a deterministic number in the form `I-DDMMYY-XXXXXXXX`.
 
 - `DDMMYY` is the issued date.
-- `XXXXXXXX` is an eight-character hexadecimal checksum calculated from the due date, issued date, billed-to details, payment heading, total, and tax rate.
+- `XXXXXXXX` is an eight-character hexadecimal checksum calculated from the due date, issued date, billed-to details, payment heading, total, tax rate, payment status, and the Monzo IBAN `GB94 MONZ 0400 0520 0836 81`.
 
 The same invoice values produce the same invoice number; changing any of those values produces a different one. It does not use a stored sequential counter.
 

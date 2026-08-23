@@ -14,6 +14,7 @@ const updatePreviewButton = document.getElementById('updatePreview');
 const fields = {
     dueDate: document.getElementById('dueDate'),
     issuedDate: document.getElementById('issuedDate'),
+    paid: document.getElementById('paidToggle'),
     billedTo: document.getElementById('billedTo'),
     paymentHeading: document.getElementById('paymentHeading'),
     total: document.getElementById('total'),
@@ -39,6 +40,7 @@ function invoiceData() {
     return {
         dueDate: fields.dueDate.value,
         issuedDate: fields.issuedDate.value,
+        paid: fields.paid.getAttribute('aria-pressed') === 'true',
         billedTo: fields.billedTo.value.trim(),
         paymentHeading: fields.paymentHeading.value.trim(),
         subtotal,
@@ -80,7 +82,9 @@ function invoiceChecksum(data) {
         data.billedTo,
         data.paymentHeading,
         data.total.toFixed(2),
-        data.taxPercent.toFixed(2)
+        data.taxPercent.toFixed(2),
+        'GB94MONZ04000520083681',
+        data.paid ? 'paid' : 'due'
     ].join('|');
     let hash = 0x811C9DC5;
     for (const character of values) {
@@ -98,6 +102,11 @@ function invoiceNumber(data) {
 function setSvgText(svgDocument, id, value) {
     const element = svgDocument.getElementById(id);
     if (element) element.textContent = value;
+}
+
+function setSvgAttribute(svgDocument, id, name, value) {
+    const element = svgDocument.getElementById(id);
+    if (element) element.setAttribute(name, value);
 }
 
 function wrapBilledTo(value, maxWidth = 560, maxLines = 4) {
@@ -147,7 +156,8 @@ function wrapBilledTo(value, maxWidth = 560, maxLines = 4) {
 
 function buildInvoiceSvg(data) {
     const svgDocument = editableTemplateDocument.cloneNode(true);
-    setSvgText(svgDocument, 'invoice-due-date', `Due ${formatDate(data.dueDate)}`);
+    setSvgText(svgDocument, 'invoice-due-date', data.paid ? 'Paid' : `Due ${formatDate(data.dueDate)}`);
+    setSvgAttribute(svgDocument, 'invoice-due-date', 'font-size', data.paid ? '46' : '38');
     setSvgText(svgDocument, 'invoice-issued-date', `Issued ${formatDate(data.issuedDate)}`);
     setSvgText(svgDocument, 'invoice-number', data.invoiceNumber);
     const billedToLines = wrapBilledTo(data.billedTo);
@@ -159,6 +169,10 @@ function buildInvoiceSvg(data) {
     setSvgText(svgDocument, 'invoice-subtotal', formatMoney(data.subtotal));
     setSvgText(svgDocument, 'invoice-tax', formatMoney(data.tax));
     setSvgText(svgDocument, 'invoice-total', formatMoney(data.total));
+    setSvgText(svgDocument, 'invoice-outstanding-label', 'Total outstanding');
+    setSvgText(svgDocument, 'invoice-outstanding', formatMoney(0));
+    setSvgAttribute(svgDocument, 'invoice-outstanding-label', 'visibility', data.paid ? 'visible' : 'hidden');
+    setSvgAttribute(svgDocument, 'invoice-outstanding', 'visibility', data.paid ? 'visible' : 'hidden');
     return new XMLSerializer().serializeToString(svgDocument);
 }
 
@@ -231,6 +245,11 @@ loadEditableTemplate().catch(error => {
 
 updatePreviewButton.addEventListener('click', () => { void renderInvoice(); });
 printableToggle.addEventListener('change', () => { void renderInvoice(); });
+fields.paid.addEventListener('click', () => {
+    const paid = fields.paid.getAttribute('aria-pressed') !== 'true';
+    fields.paid.setAttribute('aria-pressed', String(paid));
+    fields.paid.textContent = paid ? 'Mark invoice as due' : 'Mark invoice as paid';
+});
 form.addEventListener('input', updateTotalReadout);
 form.addEventListener('change', updateTotalReadout);
 form.addEventListener('submit', async event => {

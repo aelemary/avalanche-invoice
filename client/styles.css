@@ -40,6 +40,8 @@ form { display: grid; gap: 18px; }
 label { display: grid; gap: 8px; color: #e9e9eb; font-size: 0.86rem; font-weight: 600; }
 label span { color: #94949a; font-weight: 500; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.paid-toggle { width: 100%; border: 1px solid #55555d; border-radius: 8px; padding: 12px 14px; background: #242429; color: #e9e9eb; font: inherit; font-weight: 600; cursor: pointer; }
+.paid-toggle[aria-pressed="true"] { border-color: #e9e9eb; background: #e9e9eb; color: #141417; }
 
 input:not([type="checkbox"]), textarea {
     width: 100%;
