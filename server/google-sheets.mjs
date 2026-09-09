@@ -25,9 +25,17 @@ export function revenueRow(invoice, input) {
         '',
         invoice.invoiceNumber,
         clientName(input.billedTo),
-        '',
+        input.paymentHeading,
         invoice.subtotal.toFixed(2),
         ''
+    ];
+}
+
+export function revenueUpdates(invoice, input, sheetName, row) {
+    return [
+        { range: `${sheetName}!A${row}:I${row}`, values: [revenueRow(invoice, input)] },
+        { range: `${sheetName}!L${row}`, values: [[invoice.total.toFixed(2)]] },
+        { range: `${sheetName}!P${row}`, values: [[invoice.paid ? 'paid' : 'outstanding']] }
     ];
 }
 
@@ -90,13 +98,12 @@ export function createSheetsWriter({ credentials, spreadsheetId, sheetName = 'Re
             const invoiceNumbers = await request(`${base}/${encodeURIComponent(`${sheetName}!E:E`)}`);
             if ((invoiceNumbers.values ?? []).some(([value]) => value === invoice.invoiceNumber)) return { status: 'already-recorded' };
             const row = nextInvoiceRow(invoiceNumbers.values ?? []);
-            const range = `${sheetName}!A${row}:I${row}`;
-            const result = await request(`${base}/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`, {
-                method: 'PUT',
+            const result = await request(`${base}:batchUpdate`, {
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ values: [revenueRow(invoice, input)] })
+                body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: revenueUpdates(invoice, input, sheetName, row) })
             });
-            return { status: 'added', updatedRange: result.updatedRange };
+            return { status: 'added', updatedRange: result.responses?.[0]?.updatedRange };
         }
     };
 }
