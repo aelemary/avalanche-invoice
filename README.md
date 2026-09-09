@@ -1,5 +1,7 @@
 # Avalanche Invoice Generators
 
+An authenticated client-invoice PDF API is also available. See [API setup and request examples](API.md) for local setup, deployment, response fields, and the planned Google Sheets integration point. The existing browser workflows still work without the backend.
+
 This static site contains two browser-only invoice generators for Avalanche Tech Ltd. The homepage lets users choose between the existing client invoice workflow and the internal developer/contractor workflow. Both generate PDFs locally in the browser; no invoice or payment details are stored by the site.
 
 ## Routes
