@@ -32,8 +32,11 @@ export function revenueRow(invoice, input) {
 }
 
 export function revenueUpdates(invoice, input, sheetName, row) {
+    const vatAmount = Number((invoice.total - invoice.subtotal).toFixed(2));
     return [
         { range: `${sheetName}!A${row}:I${row}`, values: [revenueRow(invoice, input)] },
+        { range: `${sheetName}!J${row}`, values: [[invoice.taxPercent > 0 ? 'Yes' : 'No']] },
+        { range: `${sheetName}!K${row}`, values: [[vatAmount.toFixed(2)]] },
         { range: `${sheetName}!L${row}`, values: [[invoice.total.toFixed(2)]] },
         { range: `${sheetName}!P${row}`, values: [[invoice.paid ? 'paid' : 'outstanding']] }
     ];
