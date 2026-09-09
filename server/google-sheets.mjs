@@ -31,6 +31,14 @@ export function revenueRow(invoice, input) {
     ];
 }
 
+export function nextInvoiceRow(invoiceNumbers) {
+    let lastUsedRow = 0;
+    for (const [index, row] of invoiceNumbers.entries()) {
+        if (String(row?.[0] ?? '').trim()) lastUsedRow = index + 1;
+    }
+    return lastUsedRow + 1;
+}
+
 function serviceAccountFromEnv(env) {
     const encoded = env.GOOGLE_SERVICE_ACCOUNT_JSON_BASE64;
     if (!encoded) return undefined;
@@ -81,12 +89,14 @@ export function createSheetsWriter({ credentials, spreadsheetId, sheetName = 'Re
             const base = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values`;
             const invoiceNumbers = await request(`${base}/${encodeURIComponent(`${sheetName}!E:E`)}`);
             if ((invoiceNumbers.values ?? []).some(([value]) => value === invoice.invoiceNumber)) return { status: 'already-recorded' };
-            const result = await request(`${base}/${encodeURIComponent(`${sheetName}!A:I`)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, {
-                method: 'POST',
+            const row = nextInvoiceRow(invoiceNumbers.values ?? []);
+            const range = `${sheetName}!A${row}:I${row}`;
+            const result = await request(`${base}/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`, {
+                method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ values: [revenueRow(invoice, input)] })
             });
-            return { status: 'added', updatedRange: result.updates?.updatedRange };
+            return { status: 'added', updatedRange: result.updatedRange };
         }
     };
 }
