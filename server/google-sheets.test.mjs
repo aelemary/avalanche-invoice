@@ -6,7 +6,7 @@ test('maps a client invoice to the Revenue table columns', () => {
     assert.deepEqual(revenueRow({ issuedDate: '2026-09-06', dueDate: '2026-09-20', invoiceNumber: 'I-060926-ABCDEF12', subtotal: 1333.33 }, { billedTo: 'Example Ltd\n1 Example Street', paymentHeading: 'Website development' }), ['06/09/2026', '20/09/2026', '', '', 'I-060926-ABCDEF12', 'Example Ltd', 'Website development', '1333.33', '']);
 });
 
-test('adds VAT, the total and payment status without overwriting calculated columns', () => {
+test('adds VAT, total and status while clearing unused calculated columns', () => {
     const invoice = { issuedDate: '2026-09-06', dueDate: '2026-09-20', invoiceNumber: 'I-060926-ABCDEF12', subtotal: 100, total: 120, taxPercent: 20, paid: true };
     const input = { billedTo: 'Example Ltd', paymentHeading: 'Website development' };
     assert.deepEqual(revenueUpdates(invoice, input, 'Revenue', 5), [
@@ -14,7 +14,8 @@ test('adds VAT, the total and payment status without overwriting calculated colu
         { range: 'Revenue!J5', values: [['Yes']] },
         { range: 'Revenue!K5', values: [['20.00']] },
         { range: 'Revenue!L5', values: [['120.00']] },
-        { range: 'Revenue!P5', values: [['paid']] }
+        { range: 'Revenue!M5:O5', values: [['', '', '']] },
+        { range: 'Revenue!P5', values: [['Paid']] }
     ]);
 });
 
@@ -25,7 +26,8 @@ test('marks zero-tax invoices as not VAT registered', () => {
         { range: 'Revenue!J5', values: [['No']] },
         { range: 'Revenue!K5', values: [['0.00']] },
         { range: 'Revenue!L5', values: [['100.00']] },
-        { range: 'Revenue!P5', values: [['outstanding']] }
+        { range: 'Revenue!M5:O5', values: [['', '', '']] },
+        { range: 'Revenue!P5', values: [['Outstanding']] }
     ]);
 });
 

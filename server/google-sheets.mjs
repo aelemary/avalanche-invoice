@@ -38,7 +38,8 @@ export function revenueUpdates(invoice, input, sheetName, row) {
         { range: `${sheetName}!J${row}`, values: [[invoice.taxPercent > 0 ? 'Yes' : 'No']] },
         { range: `${sheetName}!K${row}`, values: [[vatAmount.toFixed(2)]] },
         { range: `${sheetName}!L${row}`, values: [[invoice.total.toFixed(2)]] },
-        { range: `${sheetName}!P${row}`, values: [[invoice.paid ? 'paid' : 'outstanding']] }
+        { range: `${sheetName}!M${row}:O${row}`, values: [['', '', '']] },
+        { range: `${sheetName}!P${row}`, values: [[invoice.paid ? 'Paid' : 'Outstanding']] }
     ];
 }
 
