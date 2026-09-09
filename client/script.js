@@ -21,6 +21,14 @@ const fields = {
     total: document.getElementById('total'),
     tax: document.getElementById('tax')
 };
+const sheetsAuthStatus = document.getElementById('sheetsAuthStatus');
+const sheetsSignIn = document.getElementById('sheetsSignIn');
+const sheetsSignOut = document.getElementById('sheetsSignOut');
+const sheetsLoginDialog = document.getElementById('sheetsLoginDialog');
+const sheetsLoginForm = document.getElementById('sheetsLoginForm');
+const loginUsername = document.getElementById('loginUsername');
+const loginPassword = document.getElementById('loginPassword');
+const loginError = document.getElementById('loginError');
 
 function todayForInput() {
     const now = new Date();
@@ -227,6 +235,28 @@ function downloadPdf() {
     documentPdf.save(`${slug(data.billedTo.split(/\r?\n/)[0])}-invoice-${data.dueDate}.pdf`);
 }
 
+function setAuthState(username) {
+    sheetsAuthStatus.textContent = username ? `Signed in as ${username}` : 'Not signed in';
+    sheetsSignIn.hidden = Boolean(username);
+    sheetsSignOut.hidden = !username;
+}
+
+async function checkLogin() {
+    try {
+        const response = await fetch('/api/login', { credentials: 'same-origin' });
+        const result = await response.json();
+        setAuthState(result.authenticated ? result.username : undefined);
+        return result.authenticated;
+    } catch { setAuthState(); return false; }
+}
+
+async function addToGoogleSheets(data) {
+    const response = await fetch('/api/add-to-sheets', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || 'Could not add the invoice to Google Sheets.');
+    return result.googleSheets;
+}
+
 async function loadEditableTemplate() {
     const response = await fetch(editableTemplateUrl, { cache: 'no-store' });
     if (!response.ok) throw new Error('The editable invoice SVG could not be loaded.');
@@ -244,6 +274,21 @@ loadEditableTemplate().catch(error => {
     console.error(error);
     previewCanvas.setAttribute('aria-label', 'Invoice preview could not be loaded');
 });
+void checkLogin();
+
+sheetsSignIn.addEventListener('click', () => { loginError.textContent = ''; sheetsLoginDialog.showModal(); loginUsername.focus(); });
+document.getElementById('cancelLogin').addEventListener('click', () => sheetsLoginDialog.close());
+sheetsLoginForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    loginError.textContent = '';
+    const response = await fetch('/api/login', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: loginUsername.value, password: loginPassword.value }) });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) { loginError.textContent = result.error || 'Sign-in failed.'; return; }
+    loginPassword.value = '';
+    setAuthState(result.username);
+    sheetsLoginDialog.close();
+});
+sheetsSignOut.addEventListener('click', async () => { await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' }); setAuthState(); });
 
 updatePreviewButton.addEventListener('click', () => { void renderInvoice(); });
 printableToggle.addEventListener('change', () => { void renderInvoice(); });
@@ -261,5 +306,15 @@ form.addEventListener('submit', async event => {
         return;
     }
     await renderInvoice();
+    if (fields.addToGoogleSheets.checked) {
+        try {
+            const result = await addToGoogleSheets(invoiceData());
+            document.getElementById('sheetsNote').textContent = result.status === 'added' ? 'Added to Revenue.' : 'Already recorded in Revenue.';
+        } catch (error) {
+            document.getElementById('sheetsNote').textContent = error.message;
+            if (error.message.startsWith('Sign in')) sheetsLoginDialog.showModal();
+            return;
+        }
+    }
     downloadPdf();
 });

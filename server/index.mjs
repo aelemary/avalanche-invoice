@@ -4,12 +4,13 @@ import { timingSafeEqual } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { validateInvoice, HttpError } from './validation.mjs';
 import { renderInvoice, closeRenderer } from './render.mjs';
+import { createSheetsWriterFromEnv } from './google-sheets.mjs';
 
 const publicFiles = new Set(['index.html', 'home.css', 'privacy-policy.html', ...['client', 'developer'].flatMap(dir => ['index.html', 'script.js', 'styles.css'].map(file => `${dir}/${file}`)), 'client/Avalanche Invoice.editable.svg']);
 const types = { html: 'text/html', css: 'text/css', js: 'text/javascript', svg: 'image/svg+xml' };
 const json = (res, status, body) => { res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(body)); };
 
-export function createApp({ apiKey, render = renderInvoice } = {}) {
+export function createApp({ apiKey, render = renderInvoice, sheetsWriter } = {}) {
     if (!apiKey || apiKey.length < 32 || apiKey === 'replace-with-a-long-random-secret') throw new Error('Set INVOICE_API_KEY to a random secret of at least 32 characters.');
     return createServer(async (req, res) => {
         try {
@@ -33,6 +34,10 @@ export function createApp({ apiKey, render = renderInvoice } = {}) {
                 try { input = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw new HttpError(400, 'Invalid JSON.'); }
                 input = validateInvoice(input);
                 const { invoice, pdf } = await render(input);
+                if (input.addToGoogleSheets) {
+                    if (!sheetsWriter) throw new HttpError(503, 'Google Sheets is not configured.');
+                    invoice.googleSheets = await sheetsWriter.appendRevenue(invoice, input);
+                }
                 if (input.format === 'pdf') {
                     res.writeHead(200, { 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${invoice.invoiceNumber}.pdf"`, 'X-Invoice-Number': invoice.invoiceNumber });
                     return res.end(pdf);
@@ -53,7 +58,7 @@ export function createApp({ apiKey, render = renderInvoice } = {}) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-    const server = createApp({ apiKey: process.env.INVOICE_API_KEY });
+    const server = createApp({ apiKey: process.env.INVOICE_API_KEY, sheetsWriter: createSheetsWriterFromEnv() });
     server.requestTimeout = 30000;
     server.listen(Number(process.env.PORT ?? 3000), process.env.HOST ?? '127.0.0.1', () => console.log(`Invoice API listening on port ${process.env.PORT ?? 3000}`));
     for (const signal of ['SIGTERM', 'SIGINT']) process.on(signal, () => server.close(async () => { await closeRenderer(); process.exit(0); }));

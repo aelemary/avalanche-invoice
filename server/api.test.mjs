@@ -21,13 +21,26 @@ test('HTTP authentication, validation, JSON and PDF responses', async () => {
         assert.equal((await post(input, 'bad')).status, 401);
         assert.equal((await post({ ...input, total: -1 })).status, 400);
         assert.equal(calls, 0);
-        const result = await post(input);
-        assert.equal(result.status, 200);
-        assert.equal((await result.json()).pdf.base64, Buffer.from('%PDF-test').toString('base64'));
-        const pdf = await post({ ...input, format: 'pdf' });
+        const pdf = await post(input);
         assert.equal(pdf.headers.get('content-type'), 'application/pdf');
         assert.equal(await pdf.text(), '%PDF-test');
+        const result = await post({ ...input, format: 'json' });
+        assert.equal(result.status, 200);
+        assert.equal((await result.json()).pdf.base64, Buffer.from('%PDF-test').toString('base64'));
         assert.equal((await fetch(`${base}/.env`)).status, 404);
+    } finally { await new Promise(resolve => app.close(resolve)); }
+});
+
+test('adds to Google Sheets only when requested', async () => {
+    const key = 'test-secret-'.repeat(4);
+    const writes = [];
+    const app = createApp({ apiKey: key, render: async () => ({ invoice: { invoiceNumber: 'I-060926-ABCDEF12', issuedDate: '2026-09-06', dueDate: '2026-09-20', subtotal: 1333.33 }, pdf: Buffer.from('%PDF-test') }), sheetsWriter: { appendRevenue: async (invoice, request) => { writes.push({ invoice, request }); return { status: 'added', updatedRange: 'Revenue!A5:I5' }; } } });
+    await new Promise(resolve => app.listen(0, '127.0.0.1', resolve));
+    try {
+        const response = await fetch(`http://127.0.0.1:${app.address().port}/api/invoices`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` }, body: JSON.stringify({ ...input, addToGoogleSheets: true, format: 'json' }) });
+        assert.equal(response.status, 200);
+        assert.deepEqual((await response.json()).invoice.googleSheets, { status: 'added', updatedRange: 'Revenue!A5:I5' });
+        assert.equal(writes.length, 1);
     } finally { await new Promise(resolve => app.close(resolve)); }
 });
 

@@ -74,6 +74,17 @@ button { font: inherit; }
 .preview-panel { padding: 22px; }
 .preview-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 4px 2px 20px; }
 .theme-toggle { display: flex; grid-template-columns: auto auto; align-items: center; gap: 8px; cursor: pointer; color: #d9d9dc; white-space: nowrap; }
+.sheets-auth { display: flex; align-items: center; gap: .65rem; margin: .2rem 0 1rem; font-size: .82rem; }
+.sheets-auth button { border: 1px solid currentColor; background: transparent; color: inherit; border-radius: 999px; padding: .35rem .7rem; font: inherit; cursor: pointer; }
+.login-dialog { width: min(92vw, 360px); border: 0; border-radius: 16px; padding: 1.5rem; color: #151515; }
+.login-dialog::backdrop { background: rgba(0, 0, 0, .6); }
+.login-dialog form { display: grid; gap: .9rem; }
+.login-dialog h2 { margin: 0; }
+.login-dialog label { display: grid; gap: .35rem; }
+.login-dialog input { border: 1px solid #aaa; border-radius: 6px; padding: .65rem; font: inherit; }
+.login-dialog p { min-height: 1.2em; margin: 0; color: #a00000; }
+.login-actions { display: flex; justify-content: flex-end; gap: .5rem; }
+.login-actions button { border: 0; border-radius: 6px; padding: .65rem .9rem; cursor: pointer; font: inherit; }
 .theme-toggle input { position: absolute; opacity: 0; pointer-events: none; }
 .toggle-track { position: relative; display: inline-block; width: 38px; height: 22px; border-radius: 11px; background: #55555c; transition: background 160ms ease; }
 .toggle-track::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: white; transition: transform 160ms ease; }

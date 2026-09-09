@@ -37,9 +37,9 @@ Export `INVOICE_API_KEY` in the calling shell before using this example; the ser
 
 Required fields: `issuedDate`, `dueDate` (YYYY-MM-DD), `billedTo`, `paymentHeading` (up to 42 characters), `total` (tax-inclusive GBP amount), and `taxPercent` (0–100). Amounts accept at most two decimal places. Client details must fit four rendered lines; overflow is rejected.
 
-Optional fields: `paid` and `printable` (booleans, default false), and `format` (`json` by default, or `pdf`).
+Optional fields: `paid` and `printable` (booleans, default false), and `format` (`pdf` by default, or `json`).
 
-`addToGoogleSheets` is an optional boolean (default `false`), matching the client form toggle. The JSON response echoes it as `invoice.addToGoogleSheets`. It currently records the selection only: no sheet write, storage, or external request occurs. It does not affect the PDF or invoice number.
+`addToGoogleSheets` is an optional boolean (default `false`), matching the client form toggle. When enabled, the API adds one Revenue row and returns `invoice.googleSheets` with either `added` or `already-recorded`. It does not affect the PDF or invoice number.
 
 JSON responses contain `invoice` metadata (invoice number, dates, recipient, payment heading, GBP total/subtotal/tax, tax percentage, payment status, outstanding balance and IBAN), plus `pdf: {filename, contentType, base64}`. PDF responses return the file bytes and an `X-Invoice-Number` header. Successful generation returns HTTP 200.
 
@@ -47,7 +47,9 @@ Errors return `{ "error": "..." }`: 400 for invalid data, 401 for authentication
 
 ## Company workflow and Google Sheets
 
-Invoices are generated on demand; nothing is saved or sent to Google Sheets yet. The structured `invoice` response is the future sheet-row payload. Repeating the same request produces the same content-based invoice number. This is not a guaranteed unique database identifier or an idempotency system; changing paid status currently also changes that number. Sheet integration will need a persistent record/idempotency key to avoid duplicate rows on retries.
+Set these server-side variables to enable the integration: `GOOGLE_SHEETS_SPREADSHEET_ID`, `GOOGLE_SHEETS_SHEET_NAME=Revenue`, and `GOOGLE_SERVICE_ACCOUNT_JSON_BASE64` (a base64-encoded Google service-account JSON key). Share the spreadsheet with the service-account email as an Editor. The API writes Invoice Date, Due Date, invoice number, client name, and pre-tax subtotal as Net Amount. Existing work-date, description, and frequency cells are left blank. Existing invoice numbers are detected before a new row is added.
+
+The Vercel client integration uses `/api/login` and `/api/add-to-sheets`. Set `LOGIN_USERNAME`, `LOGIN_PASSWORD_SHA256`, and `LOGIN_SESSION_SECRET` as private Vercel environment variables. A successful sign-in creates an eight-hour, HTTP-only, same-site session cookie; only that session can request a sheet write. The browser never receives the Google credential or session secret.
 
 ## Deployment
 

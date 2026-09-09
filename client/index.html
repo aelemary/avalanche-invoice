@@ -72,7 +72,12 @@
                         <span class="toggle-track" aria-hidden="true"></span>
                         <span>Add to Google Sheets</span>
                     </label>
-                    <small id="sheetsNote">Google Sheets connection coming soon.</small>
+                    <small id="sheetsNote">Sign in to add selected invoices to Revenue.</small>
+                    <div class="sheets-auth" aria-live="polite">
+                        <span id="sheetsAuthStatus">Not signed in</span>
+                        <button type="button" id="sheetsSignIn">Sign in</button>
+                        <button type="button" id="sheetsSignOut" hidden>Sign out</button>
+                    </div>
 
                     <button type="button" class="preview-button" id="updatePreview">Update preview</button>
                     <button type="submit" class="download-button">Download PDF</button>
@@ -98,6 +103,15 @@
             </section>
         </div>
     </main>
+    <dialog id="sheetsLoginDialog" class="login-dialog" aria-labelledby="loginTitle">
+        <form id="sheetsLoginForm" method="dialog">
+            <h2 id="loginTitle">Google Sheets access</h2>
+            <label>Username<input id="loginUsername" autocomplete="username" required></label>
+            <label>Password<input id="loginPassword" type="password" autocomplete="current-password" required></label>
+            <p id="loginError" role="alert"></p>
+            <div class="login-actions"><button type="button" id="cancelLogin">Cancel</button><button type="submit">Sign in</button></div>
+        </form>
+    </dialog>
     <script src="script.js"></script>
 </body>
 </html>

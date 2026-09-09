@@ -27,7 +27,7 @@ export function validateInvoice(input) {
         if (input[key] !== undefined && typeof input[key] !== 'boolean') fail(`${key} must be boolean.`);
         result[key] = input[key] ?? false;
     }
-    result.format = input.format ?? 'json';
+    result.format = input.format ?? 'pdf';
     if (!['json', 'pdf'].includes(result.format)) fail('format must be json or pdf.');
     return result;
 }
